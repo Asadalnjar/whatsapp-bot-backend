@@ -1,30 +1,33 @@
-# Dockerfile للـ Backend
-FROM node:18-alpine
+# Dockerfile للـ Backend (Node 22 / إنتاج)
+FROM node:22-alpine
 
-# إنشاء مجلد العمل
-WORKDIR /app
-
-# نسخ ملفات package
-COPY package*.json ./
-
-# تثبيت dependencies
-RUN npm ci --only=production
-
-# نسخ باقي الملفات
-COPY . .
-
-# إنشاء مجلد logs
-RUN mkdir -p logs
-
-# إنشاء مجلد uploads
-RUN mkdir -p uploads/billing uploads/invoices uploads/subscriptions
-
-# تعيين المنفذ
-EXPOSE 5000
-
-# متغيرات البيئة الافتراضية
+# بيئة إنتاج مبكراً
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# تشغيل التطبيق
+# مجلد العمل
+WORKDIR /app
+
+# نسخ ملفات التعريف أولاً للاستفادة من الكاش
+COPY package*.json ./
+
+# تثبيت تبعيات الإنتاج فقط (بديل --only=production)
+RUN npm ci --omit=dev
+
+# نسخ بقية السورس
+COPY . .
+
+# إنشاء مجلدات التشغيل
+RUN mkdir -p logs \
+    && mkdir -p uploads/billing uploads/invoices uploads/subscriptions
+
+# مستخدم غير root لاعتبارات الأمان
+RUN addgroup -S app && adduser -S app -G app \
+    && chown -R app:app /app
+USER app
+
+# المنفذ
+EXPOSE 5000
+
+# التشغيل
 CMD ["npm", "start"]
