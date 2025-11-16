@@ -272,6 +272,58 @@ async function sendTo(userId, toPhoneE164, text) {
   await sock.sendMessage(jid, { text: String(text || "").trim() });
 }
 
+/** إرسال رسالة جماعية إلى جميع القروبات المحمية */
+async function sendToAllProtectedGroups(userId, text) {
+  const sock = getSock(userId);
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    throw new Error('الرسالة مطلوبة');
+  }
+
+  // جلب القروبات المحمية من قاعدة البيانات
+  const protectedGroups = await GroupModel.find({
+    user: userId,
+    isProtected: true
+  }).select('jid name').lean();
+
+  if (protectedGroups.length === 0) {
+    throw new Error('لا توجد قروبات محمية لإرسال الرسالة إليها');
+  }
+
+  const results = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  // إرسال الرسالة لكل قروب محمي
+  for (const group of protectedGroups) {
+    try {
+      await sock.sendMessage(group.jid, { text: text.trim() });
+      results.push({
+        jid: group.jid,
+        name: group.name,
+        status: 'success'
+      });
+      successCount++;
+      console.log(`✅ تم إرسال الرسالة إلى القروب: ${group.name}`);
+    } catch (error) {
+      results.push({
+        jid: group.jid,
+        name: group.name,
+        status: 'error',
+        error: error.message
+      });
+      failCount++;
+      console.error(`❌ فشل في إرسال الرسالة إلى القروب ${group.name}:`, error.message);
+    }
+  }
+
+  return {
+    successCount,
+    failCount,
+    totalGroups: protectedGroups.length,
+    results
+  };
+}
+
 // ===== Groups APIs =====
 
 /** جلب كل القروبات التي يشارك فيها الحساب + دمج حالة الحماية من الـDB */

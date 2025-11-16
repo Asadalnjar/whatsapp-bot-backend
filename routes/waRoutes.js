@@ -62,6 +62,33 @@ router.post(
 );
 
 /**
+ * POST /wa/groups/broadcast
+ * body: { text: "message" }
+ * إرسال رسالة جماعية إلى جميع القروبات المحمية
+ */
+router.post(
+  "/groups/broadcast",
+  protect,
+  authorizeRoles("user", "admin"),
+  async (req, res) => {
+    try {
+      const { text } = req.body || {};
+      if (typeof text !== "string" || !text.trim()) {
+        return res.status(400).json({ success: false, message: "الرسالة مطلوبة" });
+      }
+
+      const result = await sendToAllProtectedGroups(req.user._id, text.trim());
+      return res.json({ success: true, data: result });
+    } catch (e) {
+      console.error("wa/groups/broadcast error:", e?.message || e);
+      return res
+        .status(500)
+        .json({ success: false, message: e?.message || "فشل في إرسال الرسالة الجماعية" });
+    }
+  }
+);
+
+/**
  * GET /wa/device-info
  * جلب معلومات الجهاز والطرق المدعومة
  */
